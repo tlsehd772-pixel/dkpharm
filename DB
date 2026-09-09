@@ -1,0 +1,45 @@
+import pandas as pd
+import fitz  # PyMuPDF: PDF 이미지 추출 라이브러리
+import json
+
+# 1. CSV 데이터 정규화 및 할인구간 파싱
+df = pd.read_csv("주문_템플릿.csv")
+products = []
+indices = [(0,1,2,3), (5,6,7,8), (10,11,12,13), (15,16,17,18), (20,21,22,23)]
+
+for row in range(len(df)):
+    for idx in indices:
+        name = str(df.iloc[row, idx[0]]).strip()
+        if name == 'nan' or not name: continue
+        
+        unit = str(df.iloc[row, idx[1]]).strip()
+        factory_price_raw = str(df.iloc[row, idx[2]]).strip()
+        selling_price = str(df.iloc[row, idx[3]]).strip()
+        
+        # 할인구간 분리 로직 적용 (예: 5.2/4.7(100~) -> 기본가, 할인가, 조건)
+        discount_range = "-"
+        if '(' in factory_price_raw:
+            parts = factory_price_raw.split('(')
+            discount_range = "(" + parts[1]
+            factory_price_raw = parts[0]
+            
+        products.append({
+            "name": name,
+            "unit": unit if unit != 'nan' else "EA",
+            "factory_price": factory_price_raw,
+            "selling_price": selling_price,
+            "discount": discount_range,
+            "image": f"images/{name}.jpg" # 추출될 이미지 경로
+        })
+
+# 2. PDF 이미지 자동 추출 (참고용)
+pdf_document = fitz.open("1772063628745_260629_110825_1788923783236.pdf")
+for page_num in range(len(pdf_document)):
+    page = pdf_document[page_num]
+    for img_index, img in enumerate(page.get_images(full=True)):
+        xref = img[0]
+        base_image = pdf_document.extract_image(xref)
+        image_bytes = base_image["image"]
+        # 실제 환경에서는 제품명과 매칭하는 OCR 로직을 추가하여 저장합니다.
+        with open(f"images/extracted_img_{page_num}_{img_index}.jpg", "wb") as f:
+            f.write(image_bytes)
