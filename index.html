@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제품 단가 및 견적 정리 시스템</title>
+<style>
+    body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f6; padding: 20px; }
+    h1 { text-align: center; color: #333; }
+    .container { display: flex; gap: 20px; }
+    .product-list, .summary-board { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 50%; }
+    
+    /* 제품 리스트 스타일 */
+    .product-item { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; padding: 10px 0; }
+    .product-item img { width: 60px; height: 60px; object-fit: contain; border: 1px solid #ddd; border-radius: 4px; }
+    .product-info { flex-grow: 1; margin-left: 15px; }
+    .btn-add { padding: 6px 12px; background: #e31837; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-add:hover { background: #c1122a; }
+
+    /* 인쇄용 테이블 스타일 */
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background-color: #f8f9fa; }
+    .summary-img { width: 50px; height: 50px; object-fit: contain; }
+
+    .print-btn { display: block; width: 100%; padding: 12px; margin-top: 20px; background: #28a745; color: white; border: none; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+    
+    /* 🖨️ 인쇄 최적화 (가장 중요한 부분) */
+    @media print {
+        body { padding: 0; background-color: white; }
+        .product-list, .print-btn { display: none; } /* 인쇄 시 상품 목록과 버튼 숨김 */
+        .summary-board { width: 100%; box-shadow: none; border: none; }
+        @page { size: A4; margin: 15mm; }
+    }
+</style>
+</head>
+<body>
+
+<h1>📦 스마트 발주/견적 정리 시스템</h1>
+
+<div class="container">
+    <!-- 왼쪽: 제품 선택 영역 -->
+    <div class="product-list">
+        <h2>제품 카탈로그</h2>
+        <div id="catalog"></div>
+    </div>
+
+    <!-- 오른쪽: 선택된 제품 정리 및 인쇄 영역 -->
+    <div class="summary-board">
+        <h2>선택된 제품 요약</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>이미지</th>
+                    <th>제품명</th>
+                    <th>주문단위</th>
+                    <th>출하가(천원)</th>
+                    <th>할인구간</th>
+                    <th>판매가(천원)</th>
+                    <th>삭제</th>
+                </tr>
+            </thead>
+            <tbody id="summary-body">
+                <!-- 선택된 항목이 여기에 추가됩니다. -->
+            </tbody>
+        </table>
+        <button class="print-btn" onclick="window.print()">🖨️ 현재 견적/발주서 인쇄하기</button>
+    </div>
+</div>
+
+<script>
+// CSV에서 추출한 샘플 데이터 (실제 사용 시 앞서 파싱한 JSON 데이터를 삽입)
+const products = [
+    { name: "인사돌 정(100T)", unit: "EA", factory_price: "28", discount: "-", selling_price: "32", image: "https://via.placeholder.com/60?text=Insadol" },
+    { name: "마데카솔케어 6g", unit: "10.0", factory_price: "4.2", discount: "4(30~)", selling_price: "5.5", image: "https://via.placeholder.com/60?text=Madecasol" },
+    { name: "위스콘 더블액션", unit: "20", factory_price: "1.54", discount: "(~80)/1.4(100~)", selling_price: "3.0", image: "https://via.placeholder.com/60?text=Wiscon" },
+    { name: "사라펜 플라스타", unit: "50.0", factory_price: "5.2", discount: "4.7(100~)", selling_price: "10(3)", image: "https://via.placeholder.com/60?text=Sarapen" }
+];
+
+let selectedItems = [];
+
+// 카탈로그 렌더링
+function renderCatalog() {
+    const catalogDiv = document.getElementById('catalog');
+    products.forEach((p, index) => {
+        catalogDiv.innerHTML += `
+            <div class="product-item">
+                <img src="${p.image}" alt="${p.name}">
+                <div class="product-info">
+                    <strong>${p.name}</strong><br>
+                    <small>단위: ${p.unit} / 출하가: ${p.factory_price}</small>
+                </div>
+                <button class="btn-add" onclick="addItem(${index})">추가</button>
+            </div>
+        `;
+    });
+}
+
+// 요약 테이블 렌더링
+function renderSummary() {
+    const tbody = document.getElementById('summary-body');
+    tbody.innerHTML = '';
+    selectedItems.forEach((p, index) => {
+        tbody.innerHTML += `
+            <tr>
+                <td><img src="${p.image}" class="summary-img"></td>
+                <td><strong>${p.name}</strong></td>
+                <td>${p.unit}</td>
+                <td>${p.factory_price}</td>
+                <td style="color:#e31837; font-weight:bold;">${p.discount}</td>
+                <td>${p.selling_price}</td>
+                <td class="no-print"><button onclick="removeItem(${index})">X</button></td>
+            </tr>
+        `;
+    });
+}
+
+function addItem(index) {
+    selectedItems.push(products[index]);
+    renderSummary();
+}
+
+function removeItem(index) {
+    selectedItems.splice(index, 1);
+    renderSummary();
+}
+
+window.onload = renderCatalog;
+</script>
+</body>
+</html>
